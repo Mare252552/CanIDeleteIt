@@ -81,16 +81,68 @@ def show_items(items, title, allow_actions=True):
         pause()
         return
 
+    clean_items = [
+        item for item in items[:max_show]
+        if item.get("_status") == "CLEAN" and item.get("path")
+    ]
+    total_clean = sum(item.get("size", 0) for item in clean_items)
+
     print("\nEnter a number for details, or B to go back.")
+    if clean_items:
+        print(
+            f"[A] Move ALL CLEAN items to Recycle Bin "
+            f"({len(clean_items)} items, {human_size(total_clean)})"
+        )
+
     while True:
         choice = input("> ").strip().lower()
+
         if choice in {"b", "back", "q"}:
             return
+
+        if choice == "a" and clean_items:
+            print()
+            print("WARNING")
+            print("=" * 72)
+            print(f"{len(clean_items)} CLEAN items will be moved to Recycle Bin.")
+            print(f"Total size: {human_size(total_clean)}")
+            print("REVIEW and KEEP items will NOT be touched.")
+            print()
+            confirm = input("Type DELETE ALL to confirm: ").strip()
+
+            if confirm != "DELETE ALL":
+                print("Cancelled.")
+                pause()
+                return
+
+            moved = 0
+            failed = 0
+
+            print()
+            for item in clean_items:
+                path = item.get("path")
+                ok, message = move_to_recycle_bin(path)
+
+                if ok:
+                    moved += 1
+                    print(f"[OK]     {path}")
+                else:
+                    failed += 1
+                    print(f"[FAILED] {path}")
+                    print(f"         {message}")
+
+            print()
+            print(f"Finished: {moved} moved to Recycle Bin, {failed} failed.")
+            print("Some files may be locked by Windows or another running app.")
+            pause()
+            return
+
         if choice.isdigit():
             idx = int(choice) - 1
             if 0 <= idx < max_show:
                 item_details(items[idx])
                 return show_items(items, title, allow_actions=True)
+
         print("Invalid choice.")
 
 
